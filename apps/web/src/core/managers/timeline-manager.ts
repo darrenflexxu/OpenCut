@@ -512,6 +512,12 @@ export class TimelineManager {
 				valueAtPlayheadMap.set(key, null);
 				continue;
 			}
+			if (typeof baseValue === "object") {
+				// Vector bases have no scalar per-path fallback; keep the base
+				// value as-is instead of sampling the keyframe curve.
+				valueAtPlayheadMap.set(key, baseValue);
+				continue;
+			}
 
 			const value = resolveAnimationPathValueAtTime({
 				animations: element.animations,

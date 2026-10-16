@@ -1,5 +1,14 @@
 node_modules
+**/node_modules
 .next
+**/.next
+target/
+**/target
+.turbo
+**/.turbo
+**/.wrangler
+**/.content-collections
+**/.tanstack
 .git
 .gitignore
 *.md
@@ -13,3 +22,7 @@ agent-transcripts
 mcps
 terminals
 apps/web/.font-cache
+target/
+# macOS metadata / AppleDouble (breaks builds on exFAT volumes)
+**/._*
+**/.DS_Store

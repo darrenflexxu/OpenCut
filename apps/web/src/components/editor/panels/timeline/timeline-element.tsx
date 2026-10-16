@@ -4,6 +4,8 @@ import { useEditor } from "@/hooks/use-editor";
 import { useAssetsPanelStore } from "@/stores/assets-panel-store";
 import { AudioWaveform } from "./audio-waveform";
 import { useElementPreview } from "@/hooks/use-element-preview";
+import { useTimelineElementResize } from "@/hooks/timeline/element/use-element-resize";
+import type { SnapPoint } from "@/lib/timeline/snap-utils";
 import {
 	useKeyframeDrag,
 	type KeyframeDragState,
@@ -195,12 +197,8 @@ interface TimelineElementProps {
 	track: TimelineTrack;
 	zoomLevel: number;
 	isSelected: boolean;
-	onResizeStart: (params: {
-		event: React.MouseEvent;
-		element: TimelineElementType;
-		track: TimelineTrack;
-		side: "left" | "right";
-	}) => void;
+	onSnapPointChange?: (snapPoint: SnapPoint | null) => void;
+	onResizeStateChange?: (params: { isResizing: boolean }) => void;
 	onElementMouseDown: (
 		event: React.MouseEvent,
 		element: TimelineElementType,
@@ -218,7 +216,8 @@ export function TimelineElement({
 	track,
 	zoomLevel,
 	isSelected,
-	onResizeStart,
+	onSnapPointChange,
+	onResizeStateChange,
 	onElementMouseDown,
 	onElementClick,
 	dragState,
@@ -231,6 +230,18 @@ export function TimelineElement({
 		trackId: track.id,
 		elementId: element.id,
 		fallback: element,
+	});
+	const {
+		isResizing,
+		handleResizeStart,
+		currentStartTime,
+		currentDuration,
+	} = useTimelineElementResize({
+		element,
+		track,
+		zoomLevel,
+		onSnapPointChange,
+		onResizeStateChange,
 	});
 
 	let mediaAsset: MediaAsset | null = null;
@@ -257,8 +268,8 @@ export function TimelineElement({
 		isBeingDragged && dragState.isDragging
 			? dragState.currentTime + dragTimeOffset
 			: renderElement.startTime;
-	const displayedStartTime = elementStartTime;
-	const displayedDuration = renderElement.duration;
+	const displayedStartTime = isResizing ? currentStartTime : elementStartTime;
+	const displayedDuration = isResizing ? currentDuration : renderElement.duration;
 	const elementWidth = timelineTimeToPixels({
 		time: displayedDuration,
 		zoomLevel,
@@ -391,7 +402,9 @@ export function TimelineElement({
 						expandedContent={expandedContent}
 						onElementClick={onElementClick}
 						onElementMouseDown={onElementMouseDown}
-						onResizeStart={onResizeStart}
+						onResizeHandleMouseDown={(event, side) =>
+							handleResizeStart({ event, elementId: element.id, side })
+						}
 						isDropTarget={isDropTarget}
 					/>
 					{isSelected && (
@@ -507,7 +520,7 @@ function ElementInner({
 	expandedContent,
 	onElementClick,
 	onElementMouseDown,
-	onResizeStart,
+	onResizeHandleMouseDown,
 	isDropTarget = false,
 }: {
 	element: TimelineElementType;
@@ -524,12 +537,10 @@ function ElementInner({
 		event: React.MouseEvent,
 		element: TimelineElementType,
 	) => void;
-	onResizeStart: (params: {
-		event: React.MouseEvent;
-		element: TimelineElementType;
-		track: TimelineTrack;
-		side: "left" | "right";
-	}) => void;
+	onResizeHandleMouseDown: (
+		event: React.MouseEvent,
+		side: "left" | "right",
+	) => void;
 	isDropTarget?: boolean;
 }) {
 	const isReducedOpacity =
@@ -590,15 +601,15 @@ function ElementInner({
 				<>
 					<ResizeHandle
 						side="left"
-						element={element}
-						track={track}
-						onResizeStart={onResizeStart}
+						onResizeHandleMouseDown={(event) =>
+							onResizeHandleMouseDown(event, "left")
+						}
 					/>
 					<ResizeHandle
 						side="right"
-						element={element}
-						track={track}
-						onResizeStart={onResizeStart}
+						onResizeHandleMouseDown={(event) =>
+							onResizeHandleMouseDown(event, "right")
+						}
 					/>
 				</>
 			)}
@@ -608,19 +619,10 @@ function ElementInner({
 
 function ResizeHandle({
 	side,
-	element,
-	track,
-	onResizeStart,
+	onResizeHandleMouseDown,
 }: {
 	side: "left" | "right";
-	element: TimelineElementType;
-	track: TimelineTrack;
-	onResizeStart: (params: {
-		event: React.MouseEvent;
-		element: TimelineElementType;
-		track: TimelineTrack;
-		side: "left" | "right";
-	}) => void;
+	onResizeHandleMouseDown: (event: React.MouseEvent) => void;
 }) {
 	const isLeft = side === "left";
 	return (
@@ -630,7 +632,7 @@ function ResizeHandle({
 				"absolute top-0 bottom-0 w-2",
 				isLeft ? "-left-1 cursor-w-resize" : "-right-1 cursor-e-resize",
 			)}
-			onMouseDown={(event) => onResizeStart({ event, element, track, side })}
+			onMouseDown={(event) => onResizeHandleMouseDown(event)}
 			onClick={(event) => event.stopPropagation()}
 			aria-label={`${isLeft ? "Left" : "Right"} resize handle`}
 		></button>
